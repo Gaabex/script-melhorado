@@ -414,8 +414,19 @@ local function createGui()
         damageMultiplierEnabled = not damageMultiplierEnabled
         updateDamageStatus(damageStatus, damageToggle)
         print("⚔️ Multiplicador de dano: " .. (damageMultiplierEnabled and "ATIVADO" or "DESATIVADO"))
+        
         if damageMultiplierEnabled then
             setupDamageMultiplier()
+        else
+            -- Limpar conexões quando desativado
+            for _, connection in pairs(damageConnections) do
+                if connection and connection.disconnect then
+                    connection.disconnect()
+                elseif connection and connection.Disconnect then
+                    connection:Disconnect()
+                end
+            end
+            damageConnections = {}
         end
     end)
     
