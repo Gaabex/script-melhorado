@@ -1,220 +1,214 @@
--- Painel de Habilidades Funcional - Roblox Lua
--- Coloque em StarterPlayerScripts
--- Tecla G abre/fecha
-
+-- Serviços
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
 
-local player = Players.LocalPlayer
-local mouse = player:GetMouse()
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local RootPart = Character:WaitForChild("HumanoidRootPart")
 
--- Variáveis de controle
-local gui = nil
-local mainFrame = nil
-local isGuiOpen = false
+-- Criando a GUI
+local ScreenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+ScreenGui.Name = "PainelHabilidades"
 
-local teleportEnabled = false
-local speedEnabled = false
-local jumpEnabled = false
-local noclipEnabled = false
-local espEnabled = false
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 350, 0, 500)
+MainFrame.Position = UDim2.new(0.65, 0, 0.2, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Visible = false -- começa oculto
+MainFrame.Parent = ScreenGui
 
-local currentSpeed = 50
-local currentJump = 100
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Parent = MainFrame
+UIListLayout.Padding = UDim.new(0, 5)
 
-local espHighlights = {}
+-- Função auxiliar: criar botão
+local function criarBotao(nome, funcao, valorInicial)
+    local botao = Instance.new("TextButton")
+    botao.Size = UDim2.new(1, -10, 0, 40)
+    botao.BackgroundColor3 = Color3.fromRGB(150,0,0)
+    botao.TextColor3 = Color3.new(1,1,1)
+    botao.Text = nome.." [DESLIGADO]"
+    botao.Parent = MainFrame
 
--- Funções de habilidade
-local function teleportToMouse()
-    local char = player.Character
-    if teleportEnabled and char and char:FindFirstChild("HumanoidRootPart") then
-        local targetPos = mouse.Hit.Position + Vector3.new(0,5,0)
-        char.HumanoidRootPart.CFrame = CFrame.new(targetPos)
-    end
-end
+    local ativo = false
+    local valor = valorInicial or nil
 
-local function updateSpeed()
-    local char = player.Character
-    if char and char:FindFirstChildOfClass("Humanoid") then
-        char.Humanoid.WalkSpeed = speedEnabled and currentSpeed or 16
-    end
-end
-
-local function updateJump()
-    local char = player.Character
-    if char and char:FindFirstChildOfClass("Humanoid") then
-        char.Humanoid.JumpPower = jumpEnabled and currentJump or 50
-    end
-end
-
-local function toggleNoclip()
-    local char = player.Character
-    if not char then return end
-    for _, part in pairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = not noclipEnabled
+    local function atualizarVisual()
+        if ativo then
+            botao.BackgroundColor3 = Color3.fromRGB(0,150,0)
+            botao.Text = nome.." [LIGADO]"
+        else
+            botao.BackgroundColor3 = Color3.fromRGB(150,0,0)
+            botao.Text = nome.." [DESLIGADO]"
         end
     end
+
+    botao.MouseButton1Click:Connect(function()
+        ativo = not ativo
+        atualizarVisual()
+        funcao(ativo, valor)
+    end)
+
+    return {
+        botao = botao,
+        setValue = function(v) valor = v end,
+        getValue = function() return valor end,
+        isActive = function() return ativo end
+    }
 end
 
-local function updateESP()
-    -- Limpa highlights antigos
-    for _, h in pairs(espHighlights) do h:Destroy() end
-    espHighlights = {}
-    if not espEnabled then return end
+-- Função auxiliar: criar slider (valor numérico)
+local function criarSlider(nome, valorMin, valorMax, valorInicial)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -10, 0, 40)
+    frame.BackgroundColor3 = Color3.fromRGB(50,50,50)
+    frame.Parent = MainFrame
 
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local highlight = Instance.new("Highlight")
-            highlight.Adornee = plr.Character
-            highlight.FillColor = Color3.new(1,0,0)
-            highlight.OutlineColor = Color3.new(1,1,1)
-            highlight.Parent = workspace
-            table.insert(espHighlights, highlight)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.5, 0, 1, 0)
+    label.Position = UDim2.new(0, 0, 0, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.new(1,1,1)
+    label.Text = nome..": "..valorInicial
+    label.Font = Enum.Font.SourceSansBold
+    label.TextScaled = true
+    label.Parent = frame
+
+    local textbox = Instance.new("TextBox")
+    textbox.Size = UDim2.new(0.5, -5, 1, -5)
+    textbox.Position = UDim2.new(0.5, 5, 0, 0)
+    textbox.Text = tostring(valorInicial)
+    textbox.ClearTextOnFocus = false
+    textbox.TextColor3 = Color3.new(1,1,1)
+    textbox.BackgroundColor3 = Color3.fromRGB(80,80,80)
+    textbox.Parent = frame
+
+    local valor = valorInicial
+
+    textbox.FocusLost:Connect(function()
+        local n = tonumber(textbox.Text)
+        if n and n >= valorMin and n <= valorMax then
+            valor = n
+            label.Text = nome..": "..valor
+        else
+            textbox.Text = tostring(valor)
         end
-    end
+    end)
+
+    return {
+        frame = frame,
+        getValue = function() return valor end
+    }
 end
 
--- Função para criar GUI
-local function createGui()
-    if gui then gui:Destroy() end
+-- Tabela de habilidades
+local habilidades = {}
 
-    gui = Instance.new("ScreenGui")
-    gui.Name = "SkillsPanel"
-    gui.ResetOnSpawn = false
-    gui.Parent = player:WaitForChild("PlayerGui")
-
-    mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 400, 0, 600)
-    mainFrame.Position = UDim2.new(0.5, -200, 0.5, -300)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(25,25,25)
-    mainFrame.BorderSizePixel = 0
-    mainFrame.Active = true
-    mainFrame.Draggable = true
-    mainFrame.Parent = gui
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0,15)
-    corner.Parent = mainFrame
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1,0,0,50)
-    title.BackgroundTransparency = 1
-    title.Text = "PAINEL DE HABILIDADES"
-    title.TextColor3 = Color3.new(1,1,1)
-    title.TextScaled = true
-    title.Font = Enum.Font.GothamBold
-    title.Parent = mainFrame
-
-    local function createSection(name, y)
-        local frame = Instance.new("Frame")
-        frame.Size = UDim2.new(1,-20,0,70)
-        frame.Position = UDim2.new(0,10,0,y)
-        frame.BackgroundColor3 = Color3.fromRGB(40,40,40)
-        frame.BorderSizePixel = 0
-        frame.Parent = mainFrame
-
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0,10)
-        corner.Parent = frame
-
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(1,0,0,30)
-        label.Position = UDim2.new(0,0,0,5)
-        label.BackgroundTransparency = 1
-        label.Text = name
-        label.TextColor3 = Color3.new(1,1,1)
-        label.TextScaled = true
-        label.Font = Enum.Font.Gotham
-        label.Parent = frame
-
-        local toggle = Instance.new("TextButton")
-        toggle.Size = UDim2.new(0.4,0,0,30)
-        toggle.Position = UDim2.new(0.55,0,0,20)
-        toggle.Text = "OFF"
-        toggle.BackgroundColor3 = Color3.fromRGB(150,0,0)
-        toggle.TextColor3 = Color3.new(1,1,1)
-        toggle.TextScaled = true
-        toggle.Font = Enum.Font.GothamBold
-        toggle.Parent = frame
-
-        local function setToggle(state)
-            toggle.Text = state and "ON" or "OFF"
-            toggle.BackgroundColor3 = state and Color3.fromRGB(0,150,0) or Color3.fromRGB(150,0,0)
-        end
-
-        return frame, toggle, setToggle
+-- Velocidade
+local velocidadeSlider = criarSlider("Velocidade", 16, 200, 50)
+habilidades["Velocidade"] = criarBotao("Velocidade", function(ativo, valor)
+    if ativo then
+        Humanoid.WalkSpeed = velocidadeSlider.getValue()
+    else
+        Humanoid.WalkSpeed = 16
     end
+end, velocidadeSlider.getValue())
 
-    -- Criar todas seções
-    local teleportFrame, teleportToggle, setTeleportToggle = createSection("TELEPORTE", 60)
-    local speedFrame, speedToggle, setSpeedToggle = createSection("VELOCIDADE", 140)
-    local jumpFrame, jumpToggle, setJumpToggle = createSection("PULO", 220)
-    local noclipFrame, noclipToggle, setNoclipToggle = createSection("NOCLIP", 300)
-    local espFrame, espToggle, setESPToggle = createSection("ESP", 380)
-
-    -- Eventos
-    teleportToggle.MouseButton1Click:Connect(function()
-        teleportEnabled = not teleportEnabled
-        setTeleportToggle(teleportEnabled)
-    end)
-
-    speedToggle.MouseButton1Click:Connect(function()
-        speedEnabled = not speedEnabled
-        setSpeedToggle(speedEnabled)
-        updateSpeed()
-    end)
-
-    jumpToggle.MouseButton1Click:Connect(function()
-        jumpEnabled = not jumpEnabled
-        setJumpToggle(jumpEnabled)
-        updateJump()
-    end)
-
-    noclipToggle.MouseButton1Click:Connect(function()
-        noclipEnabled = not noclipEnabled
-        setNoclipToggle(noclipEnabled)
-        toggleNoclip()
-    end)
-
-    espToggle.MouseButton1Click:Connect(function()
-        espEnabled = not espEnabled
-        setESPToggle(espEnabled)
-        updateESP()
-    end)
-
-    mainFrame.Visible = true
-end
-
--- Abrir/Fechar GUI
-local function toggleGui()
-    if not gui then createGui() end
-    isGuiOpen = not isGuiOpen
-    mainFrame.Visible = isGuiOpen
-end
-
--- Abrir com tecla G
-UserInputService.InputBegan:Connect(function(input, processed)
-    if processed then return end
-    if input.KeyCode == Enum.KeyCode.G then
-        toggleGui()
-    end
-end)
-
--- RenderStepped para habilidades
+-- Atualizar velocidade continuamente se ativo
 RunService.RenderStepped:Connect(function()
-    if speedEnabled then updateSpeed() end
-    if jumpEnabled then updateJump() end
-    if noclipEnabled then toggleNoclip() end
-    if espEnabled then updateESP() end
+    if habilidades["Velocidade"].isActive() then
+        Humanoid.WalkSpeed = velocidadeSlider.getValue()
+    end
 end)
 
--- Reconfigurar após respawn
-player.CharacterAdded:Connect(function()
-    wait(1)
-    if speedEnabled then updateSpeed() end
-    if jumpEnabled then updateJump() end
-    if noclipEnabled then toggleNoclip() end
-    if espEnabled then updateESP() end
+-- Pulo Alto
+local puloSlider = criarSlider("Pulo", 50, 300, 100)
+habilidades["Pulo Alto"] = criarBotao("Pulo Alto", function(ativo, valor)
+    if ativo then
+        Humanoid.JumpPower = puloSlider.getValue()
+    else
+        Humanoid.JumpPower = 50
+    end
+end, puloSlider.getValue())
+
+-- Atualizar pulo continuamente
+RunService.RenderStepped:Connect(function()
+    if habilidades["Pulo Alto"].isActive() then
+        Humanoid.JumpPower = puloSlider.getValue()
+    end
+end)
+
+-- Noclip
+habilidades["Noclip"] = criarBotao("Noclip", function(ativo)
+    if ativo then
+        for _, part in pairs(Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    else
+        for _, part in pairs(Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
+        end
+    end
+end)
+
+-- Teleporte
+local teleKey = Enum.KeyCode.T -- padrão
+habilidades["Teleporte"] = criarBotao("Teleporte", function() end)
+
+UIS.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == teleKey and habilidades["Teleporte"].isActive() then
+        local pos = Mouse.Hit.Position + Vector3.new(0,3,0)
+        Character:SetPrimaryPartCFrame(CFrame.new(pos))
+    end
+end)
+
+-- AutoAim
+habilidades["AutoAim"] = criarBotao("AutoAim", function(ativo)
+    print("AutoAim "..(ativo and "ativado" or "desativado"))
+end)
+
+-- KillAura
+habilidades["KillAura"] = criarBotao("KillAura", function(ativo)
+    print("KillAura "..(ativo and "ativado" or "desativado"))
+end)
+
+-- Multiplicador de Dano
+habilidades["Multiplicador"] = criarBotao("Multiplicador de Dano", function(ativo)
+    print("Multiplicador "..(ativo and "ativado" or "desativado"))
+end)
+
+-- Regeneração Rápida
+habilidades["Regeneração"] = criarBotao("Regeneração Rápida", function(ativo)
+    if ativo then
+        spawn(function()
+            while habilidades["Regeneração"].isActive() do
+                Humanoid.Health = math.min(Humanoid.MaxHealth, Humanoid.Health + 5)
+                wait(0.5)
+            end
+        end)
+    end
+end)
+
+-- Knockback
+local knockbackSlider = criarSlider("Knockback", 10, 500, 50)
+habilidades["Knockback"] = criarBotao("Knockback", function(ativo)
+    print("Knockback "..(ativo and "ativado" or "desativado"))
+end)
+
+-- Mostrar/Ocultar painel com G
+local toggleKey = Enum.KeyCode.G
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == toggleKey then
+        MainFrame.Visible = not MainFrame.Visible
+    end
 end)
