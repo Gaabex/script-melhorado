@@ -1,226 +1,226 @@
--- Painel de Habilidades Roblox - COMPLETO
--- Coloque em StarterPlayer > StarterPlayerScripts
--- Pressione G para abrir/fechar o painel
+-- Painel de Habilidades Completo para Roblox
+-- Coloque em StarterPlayerScripts
+-- Pressione G para abrir/fechar
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
-local gui, mainFrame
 
--- Configurações iniciais
+-- Variáveis
+local gui = nil
+local mainFrame = nil
 local isGuiOpen = false
-local settings = {
-    teleportEnabled = false,
-    teleportKey = Enum.KeyCode.F,
-    speedEnabled = false,
-    jumpEnabled = false,
-    speedValue = 50,
-    jumpValue = 100,
-    noclipEnabled = false,
-    espEnabled = false,
-    autoAimEnabled = false,
-    killAuraEnabled = false,
-    killAuraRange = 10,
-}
 
--- Função de Teleporte
+local teleportEnabled = false
+local speedEnabled = false
+local jumpEnabled = false
+local noclipEnabled = false
+local espEnabled = false
+local autoAimEnabled = false
+local killAuraEnabled = false
+
+local currentSpeed = 50
+local currentJump = 100
+
+-- Funções de habilidade
 local function teleportToMouse()
+    if not teleportEnabled then return end
     local char = player.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    if mouse.Hit then
-        char.HumanoidRootPart.CFrame = CFrame.new(mouse.Hit.Position + Vector3.new(0,5,0))
-    end
+    local target = mouse.Hit.Position + Vector3.new(0,5,0)
+    char.HumanoidRootPart.CFrame = CFrame.new(target)
 end
 
--- Atualiza Velocidade e Pulo
-local function updateMovement()
+local function updateSpeed()
     local char = player.Character
-    if char then
-        local humanoid = char:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.WalkSpeed = settings.speedEnabled and settings.speedValue or 16
-            humanoid.JumpPower = settings.jumpEnabled and settings.jumpValue or 50
+    if char and char:FindFirstChildOfClass("Humanoid") then
+        char.Humanoid.WalkSpeed = speedEnabled and currentSpeed or 16
+    end
+end
+
+local function updateJump()
+    local char = player.Character
+    if char and char:FindFirstChildOfClass("Humanoid") then
+        char.Humanoid.JumpPower = jumpEnabled and currentJump or 50
+    end
+end
+
+local function toggleNoclip()
+    local char = player.Character
+    if not char then return end
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = not noclipEnabled
         end
     end
 end
 
--- Noclip
-local function noclipLoop()
-    if settings.noclipEnabled then
-        local char = player.Character
-        if char then
-            for _, part in pairs(char:GetChildren()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = false
-                end
-            end
-        end
-    end
-end
-
--- ESP
-local espBoxes = {}
+-- ESP simples
+local espHighlights = {}
 local function updateESP()
-    if settings.espEnabled then
-        for _, plr in pairs(Players:GetPlayers()) do
-            if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                if not espBoxes[plr] then
-                    local box = Instance.new("BillboardGui")
-                    box.Size = UDim2.new(0,100,0,50)
-                    box.Adornee = plr.Character.HumanoidRootPart
-                    box.AlwaysOnTop = true
-                    local label = Instance.new("TextLabel", box)
-                    label.Size = UDim2.new(1,0,1,0)
-                    label.BackgroundTransparency = 1
-                    label.TextColor3 = Color3.new(1,0,0)
-                    label.TextScaled = true
-                    label.Text = plr.Name
-                    box.Parent = player.PlayerGui
-                    espBoxes[plr] = box
-                end
-            end
-        end
-    else
-        for _, box in pairs(espBoxes) do
-            box:Destroy()
-        end
-        espBoxes = {}
+    for _, highlight in pairs(espHighlights) do
+        highlight:Destroy()
     end
-end
-
--- AutoAim
-local function getClosestEnemy()
-    local closestDist = math.huge
-    local closestPlr = nil
+    espHighlights = {}
+    if not espEnabled then return end
     for _, plr in pairs(Players:GetPlayers()) do
         if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local dist = (plr.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-            if dist < closestDist then
-                closestDist = dist
-                closestPlr = plr
-            end
-        end
-    end
-    return closestPlr
-end
-
-local function autoAimLoop()
-    if settings.autoAimEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        local enemy = getClosestEnemy()
-        if enemy then
-            local root = player.Character.HumanoidRootPart
-            root.CFrame = CFrame.new(root.Position, enemy.Character.HumanoidRootPart.Position)
+            local highlight = Instance.new("Highlight")
+            highlight.Adornee = plr.Character
+            highlight.FillColor = Color3.new(1,0,0)
+            highlight.OutlineColor = Color3.new(1,1,1)
+            highlight.Parent = workspace
+            table.insert(espHighlights, highlight)
         end
     end
 end
 
--- Kill Aura
-local function killAuraLoop()
-    if settings.killAuraEnabled and player.Character then
-        local root = player.Character:FindFirstChild("HumanoidRootPart")
-        if root then
-            for _, plr in pairs(Players:GetPlayers()) do
-                if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                    local dist = (plr.Character.HumanoidRootPart.Position - root.Position).Magnitude
-                    if dist <= settings.killAuraRange then
-                        local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-                        if hum then
-                            hum.Health = 0
-                        end
-                    end
-                end
-            end
-        end
-    end
-end
-
--- Loop principal
-RunService.RenderStepped:Connect(function()
-    noclipLoop()
-    updateESP()
-    autoAimLoop()
-    killAuraLoop()
-end)
-
--- Teclas
-UserInputService.InputBegan:Connect(function(input, gp)
-    if gp then return end
-    if input.KeyCode == Enum.KeyCode.G then
-        isGuiOpen = not isGuiOpen
-        if mainFrame then
-            mainFrame.Visible = isGuiOpen
-        end
-    elseif input.KeyCode == settings.teleportKey and settings.teleportEnabled then
-        teleportToMouse()
-    end
-end)
-
--- GUI
+-- Painel GUI
 local function createGui()
+    if gui then gui:Destroy() end
+
     gui = Instance.new("ScreenGui")
     gui.Name = "SkillsPanel"
+    gui.ResetOnSpawn = false
     gui.Parent = player:WaitForChild("PlayerGui")
 
     mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0,400,0,600)
-    mainFrame.Position = UDim2.new(0.5,-200,0.5,-300)
+    mainFrame.Size = UDim2.new(0, 400, 0, 600)
+    mainFrame.Position = UDim2.new(0.5, -200, 0.5, -300)
     mainFrame.BackgroundColor3 = Color3.fromRGB(25,25,25)
+    mainFrame.BorderSizePixel = 0
     mainFrame.Active = true
     mainFrame.Draggable = true
     mainFrame.Parent = gui
 
-    local uicorner = Instance.new("UICorner", mainFrame)
-    uicorner.CornerRadius = UDim.new(0,15)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0,15)
+    corner.Parent = mainFrame
 
-    local title = Instance.new("TextLabel", mainFrame)
+    local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1,0,0,50)
-    title.Text = "PAINEL DE HABILIDADES"
-    title.TextScaled = true
     title.BackgroundTransparency = 1
-    title.Position = UDim2.new(0,0,0,0)
+    title.Text = "PAINEL DE HABILIDADES"
     title.TextColor3 = Color3.new(1,1,1)
+    title.TextScaled = true
+    title.Font = Enum.Font.GothamBold
+    title.Parent = mainFrame
 
-    -- Função para criar toggle
-    local function createToggle(parent,text,posY,settingKey)
-        local btn = Instance.new("TextButton", parent)
-        btn.Size = UDim2.new(0.8,0,0,35)
-        btn.Position = UDim2.new(0.1,0,0,posY)
-        btn.Text = text .. ": OFF"
-        btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
-        btn.TextColor3 = Color3.new(1,1,1)
-        local corner = Instance.new("UICorner", btn)
-        corner.CornerRadius = UDim.new(0,8)
-        btn.MouseButton1Click:Connect(function()
-            settings[settingKey] = not settings[settingKey]
-            btn.Text = text .. (settings[settingKey] and ": ON" or ": OFF")
-        end)
-        return btn
+    local function createSection(name, y)
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.new(1,-20,0,70)
+        frame.Position = UDim2.new(0,10,0,y)
+        frame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+        frame.BorderSizePixel = 0
+        frame.Parent = mainFrame
+
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0,10)
+        corner.Parent = frame
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1,0,0,30)
+        label.Position = UDim2.new(0,0,0,5)
+        label.BackgroundTransparency = 1
+        label.Text = name
+        label.TextColor3 = Color3.new(1,1,1)
+        label.TextScaled = true
+        label.Font = Enum.Font.Gotham
+        label.Parent = frame
+
+        local toggle = Instance.new("TextButton")
+        toggle.Size = UDim2.new(0.4,0,0,30)
+        toggle.Position = UDim2.new(0.55,0,0,20)
+        toggle.Text = "OFF"
+        toggle.BackgroundColor3 = Color3.fromRGB(150,0,0)
+        toggle.TextColor3 = Color3.new(1,1,1)
+        toggle.TextScaled = true
+        toggle.Font = Enum.Font.GothamBold
+        toggle.Parent = frame
+
+        local function setToggle(state)
+            toggle.Text = state and "ON" or "OFF"
+            toggle.BackgroundColor3 = state and Color3.fromRGB(0,150,0) or Color3.fromRGB(150,0,0)
+        end
+
+        return frame, toggle, setToggle
     end
 
-    createToggle(mainFrame,"Teleport",60,"teleportEnabled")
-    createToggle(mainFrame,"Speed",110,"speedEnabled")
-    createToggle(mainFrame,"Jump",160,"jumpEnabled")
-    createToggle(mainFrame,"Noclip",210,"noclipEnabled")
-    createToggle(mainFrame,"ESP",260,"espEnabled")
-    createToggle(mainFrame,"AutoAim",310,"autoAimEnabled")
-    createToggle(mainFrame,"KillAura",360,"killAuraEnabled")
+    -- Criar todas seções
+    local teleportFrame, teleportToggle, setTeleportToggle = createSection("TELEPORTE", 60)
+    local speedFrame, speedToggle, setSpeedToggle = createSection("VELOCIDADE", 140)
+    local jumpFrame, jumpToggle, setJumpToggle = createSection("PULO", 220)
+    local noclipFrame, noclipToggle, setNoclipToggle = createSection("NOCLIP", 300)
+    local espFrame, espToggle, setESPToggle = createSection("ESP", 380)
+
+    -- Eventos
+    teleportToggle.MouseButton1Click:Connect(function()
+        teleportEnabled = not teleportEnabled
+        setTeleportToggle(teleportEnabled)
+    end)
+
+    speedToggle.MouseButton1Click:Connect(function()
+        speedEnabled = not speedEnabled
+        setSpeedToggle(speedEnabled)
+        updateSpeed()
+    end)
+
+    jumpToggle.MouseButton1Click:Connect(function()
+        jumpEnabled = not jumpEnabled
+        setJumpToggle(jumpEnabled)
+        updateJump()
+    end)
+
+    noclipToggle.MouseButton1Click:Connect(function()
+        noclipEnabled = not noclipEnabled
+        setNoclipToggle(noclipEnabled)
+        toggleNoclip()
+    end)
+
+    espToggle.MouseButton1Click:Connect(function()
+        espEnabled = not espEnabled
+        setESPToggle(espEnabled)
+        updateESP()
+    end)
+
+    gui.Enabled = true
 end
 
-createGui()
+-- Abrir/Fechar GUI
+local function toggleGui()
+    if not gui then createGui() end
+    isGuiOpen = not isGuiOpen
+    mainFrame.Visible = isGuiOpen
+end
 
--- Aplica configurações ao respawn
-player.CharacterAdded:Connect(function()
-    wait(1)
-    updateMovement()
+-- Abrir com tecla G
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.KeyCode == Enum.KeyCode.G then
+        toggleGui()
+    end
+    if teleportEnabled and input.UserInputType == Enum.UserInputType.Keyboard then
+        teleportToMouse()
+    end
 end)
 
--- Atualiza movimento a cada segundo caso toggles estejam ativos
-spawn(function()
-    while true do
-        wait(1)
-        updateMovement()
-    end
+-- Atualizar habilidades a cada frame
+RunService.RenderStepped:Connect(function()
+    if speedEnabled then updateSpeed() end
+    if jumpEnabled then updateJump() end
+    if noclipEnabled then toggleNoclip() end
+    if espEnabled then updateESP() end
+end)
+
+-- Reconfigurar após respawn
+player.CharacterAdded:Connect(function()
+    wait(1)
+    if speedEnabled then updateSpeed() end
+    if jumpEnabled then updateJump() end
+    if noclipEnabled then toggleNoclip() end
+    if espEnabled then updateESP() end
 end)
