@@ -1,16 +1,15 @@
--- Painel de Habilidades Completo para Roblox
+-- Painel de Habilidades Funcional - Roblox Lua
 -- Coloque em StarterPlayerScripts
--- Pressione G para abrir/fechar
+-- Tecla G abre/fecha
 
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
 
--- Variáveis
+-- Variáveis de controle
 local gui = nil
 local mainFrame = nil
 local isGuiOpen = false
@@ -20,19 +19,19 @@ local speedEnabled = false
 local jumpEnabled = false
 local noclipEnabled = false
 local espEnabled = false
-local autoAimEnabled = false
-local killAuraEnabled = false
 
 local currentSpeed = 50
 local currentJump = 100
 
+local espHighlights = {}
+
 -- Funções de habilidade
 local function teleportToMouse()
-    if not teleportEnabled then return end
     local char = player.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    local target = mouse.Hit.Position + Vector3.new(0,5,0)
-    char.HumanoidRootPart.CFrame = CFrame.new(target)
+    if teleportEnabled and char and char:FindFirstChild("HumanoidRootPart") then
+        local targetPos = mouse.Hit.Position + Vector3.new(0,5,0)
+        char.HumanoidRootPart.CFrame = CFrame.new(targetPos)
+    end
 end
 
 local function updateSpeed()
@@ -59,14 +58,12 @@ local function toggleNoclip()
     end
 end
 
--- ESP simples
-local espHighlights = {}
 local function updateESP()
-    for _, highlight in pairs(espHighlights) do
-        highlight:Destroy()
-    end
+    -- Limpa highlights antigos
+    for _, h in pairs(espHighlights) do h:Destroy() end
     espHighlights = {}
     if not espEnabled then return end
+
     for _, plr in pairs(Players:GetPlayers()) do
         if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
             local highlight = Instance.new("Highlight")
@@ -79,7 +76,7 @@ local function updateESP()
     end
 end
 
--- Painel GUI
+-- Função para criar GUI
 local function createGui()
     if gui then gui:Destroy() end
 
@@ -187,7 +184,7 @@ local function createGui()
         updateESP()
     end)
 
-    gui.Enabled = true
+    mainFrame.Visible = true
 end
 
 -- Abrir/Fechar GUI
@@ -203,12 +200,9 @@ UserInputService.InputBegan:Connect(function(input, processed)
     if input.KeyCode == Enum.KeyCode.G then
         toggleGui()
     end
-    if teleportEnabled and input.UserInputType == Enum.UserInputType.Keyboard then
-        teleportToMouse()
-    end
 end)
 
--- Atualizar habilidades a cada frame
+-- RenderStepped para habilidades
 RunService.RenderStepped:Connect(function()
     if speedEnabled then updateSpeed() end
     if jumpEnabled then updateJump() end
