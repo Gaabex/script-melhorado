@@ -1,85 +1,91 @@
--- Painel de Habilidades para Roblox - SkyWars S3
--- Coloque em StarterPlayer > StarterPlayerScripts
--- Pressione G para abrir/fechar
-
+-- Painel SkyWars S3 - Profissional e Polido
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
-local playerGui = player:WaitForChild("PlayerGui")
 
--- Variáveis gerais
+-- Variáveis principais
 local gui, mainFrame
 local isGuiOpen = false
 
--- Estados das habilidades
 local teleportEnabled = false
 local teleportKey = "F"
 
 local speedEnabled = false
 local currentSpeed = 50
-local originalWalkSpeed = 16
 
-local damageEnabled = false
-local currentMultiplier = 2
+local jumpEnabled = false
+local currentJump = 100
 
 local noclipEnabled = false
-local jumpEnabled = false
-local jumpPower = 100
 
 local espEnabled = false
 local itemEspEnabled = false
-
 local reachEnabled = false
-local reachDistance = 10
+local currentReach = 10
 
 local autoAimEnabled = false
 local killAuraEnabled = false
 
--- Funções utilitárias
-local function toggleGui()
-    if not gui then
-        gui = createGui()
+local espBoxes = {}
+local itemBoxes = {}
+
+-- Funções de utilidade
+local function createBoxAdorning(target, color)
+    if target:FindFirstChild("BoxESP") then target.BoxESP:Destroy() end
+    local box = Instance.new("BoxHandleAdornment")
+    box.Name = "BoxESP"
+    box.Adornee = target
+    box.AlwaysOnTop = true
+    box.ZIndex = 10
+    box.Size = target.Size
+    box.Color3 = color
+    box.Transparency = 0.5
+    box.Parent = target
+    return box
+end
+
+local function updateESP()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            if espEnabled then
+                if not espBoxes[p] then
+                    espBoxes[p] = createBoxAdorning(p.Character.HumanoidRootPart, Color3.new(1,0,0))
+                end
+            else
+                if espBoxes[p] then
+                    espBoxes[p]:Destroy()
+                    espBoxes[p] = nil
+                end
+            end
+        end
     end
-    isGuiOpen = not isGuiOpen
-    mainFrame.Visible = isGuiOpen
 end
 
--- Teleporte
-local function teleportToMouse()
-    if not teleportEnabled then return end
-    local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-    local root = character.HumanoidRootPart
-    local pos = mouse.Hit.Position + Vector3.new(0,5,0)
-    root.CFrame = CFrame.new(pos)
-end
-
--- Velocidade
-local function updateSpeed()
-    local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-    if humanoid then
-        humanoid.WalkSpeed = speedEnabled and currentSpeed or originalWalkSpeed
+local function updateItemESP()
+    for _, item in pairs(Workspace:GetChildren()) do
+        if (item:IsA("Tool") or item:IsA("Part")) then
+            if itemEspEnabled then
+                if not itemBoxes[item] then
+                    itemBoxes[item] = createBoxAdorning(item, Color3.new(0,1,0))
+                end
+            else
+                if itemBoxes[item] then
+                    itemBoxes[item]:Destroy()
+                    itemBoxes[item] = nil
+                end
+            end
+        end
     end
 end
 
--- JumpPower
-local function updateJump()
-    local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-    if humanoid then
-        humanoid.JumpPower = jumpEnabled and jumpPower or 50
-    end
-end
-
--- Noclip
-local function runNoclip()
-    if not noclipEnabled then return end
-    local character = player.Character
-    if character then
-        for _, part in pairs(character:GetChildren()) do
+local function noclipLoop()
+    if noclipEnabled and player.Character then
+        for _, part in pairs(player.Character:GetDescendants()) do
             if part:IsA("BasePart") then
                 part.CanCollide = false
             end
@@ -87,92 +93,146 @@ local function runNoclip()
     end
 end
 
--- GUI
-function createGui()
-    local screenGui = Instance.new("ScreenGui", playerGui)
-    screenGui.ResetOnSpawn = false
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 400, 0, 600)
-    frame.Position = UDim2.new(0.5, -200, 0.5, -300)
-    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    frame.Active = true
-    frame.Draggable = true
-    frame.Parent = screenGui
-    mainFrame = frame
-
-    local function createToggle(text, y, callback)
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(0.6, 0, 0, 25)
-        label.Position = UDim2.new(0.05,0,0,y)
-        label.Text = text
-        label.TextColor3 = Color3.new(1,1,1)
-        label.BackgroundTransparency = 1
-        label.TextScaled = true
-        label.Font = Enum.Font.Gotham
-        label.Parent = frame
-
-        local button = Instance.new("TextButton")
-        button.Size = UDim2.new(0.3,0,0,25)
-        button.Position = UDim2.new(0.65,0,0,y)
-        button.Text = "OFF"
-        button.TextColor3 = Color3.new(1,1,1)
-        button.BackgroundColor3 = Color3.fromRGB(100,0,0)
-        button.Font = Enum.Font.GothamBold
-        button.TextScaled = true
-        button.Parent = frame
-
-        local function updateButton(state)
-            button.Text = state and "ON" or "OFF"
-            button.BackgroundColor3 = state and Color3.fromRGB(0,150,0) or Color3.fromRGB(100,0,0)
+local function updateMovement()
+    if player.Character then
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = speedEnabled and currentSpeed or 16
+            humanoid.JumpPower = jumpEnabled and currentJump or 50
         end
+    end
+end
 
-        button.MouseButton1Click:Connect(function()
-            callback()
-            updateButton()
+local function teleportToMouse()
+    if teleportEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        local targetPos = mouse.Hit.Position + Vector3.new(0,5,0)
+        player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPos)
+    end
+end
+
+-- Kill Aura
+local function killAura()
+    if killAuraEnabled and player.Character then
+        local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local distance = (p.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
+                if distance <= currentReach then
+                    local tool = player.Character:FindFirstChildOfClass("Tool")
+                    if tool and tool:FindFirstChild("Handle") then
+                        tool.Handle:FireServer() -- simula ataque
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- AutoAim
+local function getClosestPlayer()
+    local closestDist = math.huge
+    local closestPlayer = nil
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return nil end
+    local hrp = player.Character.HumanoidRootPart
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local dist = (p.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
+            if dist < closestDist then
+                closestDist = dist
+                closestPlayer = p
+            end
+        end
+    end
+    return closestPlayer
+end
+
+-- GUI
+local function createGui()
+    if gui then gui:Destroy() end
+    gui = Instance.new("ScreenGui")
+    gui.ResetOnSpawn = false
+    gui.Parent = player:WaitForChild("PlayerGui")
+
+    mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0,400,0,600)
+    mainFrame.Position = UDim2.new(0.5,-200,0.5,-300)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+    mainFrame.Parent = gui
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1,0,0,50)
+    title.BackgroundTransparency = 1
+    title.Text = "PAINEL SKY WARS COMPLETO"
+    title.TextColor3 = Color3.new(1,1,1)
+    title.Font = Enum.Font.GothamBold
+    title.TextScaled = true
+    title.Parent = mainFrame
+
+    local y = 70
+    local function createToggleButton(name, variableRef)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.9,0,0,35)
+        btn.Position = UDim2.new(0.05,0,0,y)
+        btn.Text = name.." - DESATIVADO"
+        btn.BackgroundColor3 = Color3.fromRGB(200,0,0)
+        btn.TextColor3 = Color3.new(1,1,1)
+        btn.Parent = mainFrame
+        btn.MouseButton1Click:Connect(function()
+            variableRef[1] = not variableRef[1]
+            if variableRef[1] then
+                btn.Text = name.." - ATIVADO"
+                btn.BackgroundColor3 = Color3.fromRGB(0,200,0)
+            else
+                btn.Text = name.." - DESATIVADO"
+                btn.BackgroundColor3 = Color3.fromRGB(200,0,0)
+            end
         end)
-
-        return updateButton
+        y = y + 45
     end
 
-    -- Adicionar toggles
-    local updateTeleport = createToggle("Teleporte", 50, function() teleportEnabled = not teleportEnabled end)
-    local updateSpeedToggle = createToggle("Velocidade", 100, function() speedEnabled = not speedEnabled updateSpeed() end)
-    local updateDamage = createToggle("Multiplicador de dano", 150, function() damageEnabled = not damageEnabled end)
-    local updateNoclip = createToggle("Noclip", 200, function() noclipEnabled = not noclipEnabled end)
-    local updateJump = createToggle("JumpPower", 250, function() jumpEnabled = not jumpEnabled updateJump() end)
-    local updateESP = createToggle("ESP", 300, function() espEnabled = not espEnabled end)
-    local updateItemESP = createToggle("Item ESP", 350, function() itemEspEnabled = not itemEspEnabled end)
-    local updateReach = createToggle("Reach", 400, function() reachEnabled = not reachEnabled end)
-    local updateAutoAim = createToggle("AutoAim", 450, function() autoAimEnabled = not autoAimEnabled end)
-    local updateKillAura = createToggle("Kill Aura", 500, function() killAuraEnabled = not killAuraEnabled end)
-
-    return frame
+    createToggleButton("Teleporte",{teleportEnabled})
+    createToggleButton("Velocidade",{speedEnabled})
+    createToggleButton("Pulo",{jumpEnabled})
+    createToggleButton("Noclip",{noclipEnabled})
+    createToggleButton("ESP Jogadores",{espEnabled})
+    createToggleButton("ESP Itens",{itemEspEnabled})
+    createToggleButton("Alcance",{reachEnabled})
+    createToggleButton("AutoAim",{autoAimEnabled})
+    createToggleButton("Kill Aura",{killAuraEnabled})
 end
 
 -- Input
-UserInputService.InputBegan:Connect(function(input, gp)
-    if gp then return end
+UserInputService.InputBegan:Connect(function(input,gameProcessed)
+    if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.G then
-        toggleGui()
+        isGuiOpen = not isGuiOpen
+        if mainFrame then mainFrame.Visible = isGuiOpen end
     end
-    if teleportEnabled and input.KeyCode.Name == teleportKey then
-        teleportToMouse()
-    end
-end)
-
--- Loop noclip
-RunService.Stepped:Connect(function()
-    if noclipEnabled then
-        runNoclip()
+    if teleportEnabled then
+        if input.KeyCode.Name == teleportKey then
+            teleportToMouse()
+        end
     end
 end)
 
--- Character respawn
-player.CharacterAdded:Connect(function(char)
-    local humanoid = char:WaitForChild("Humanoid")
-    originalWalkSpeed = humanoid.WalkSpeed
-    updateSpeed()
-    updateJump()
+-- Loop
+RunService.RenderStepped:Connect(function()
+    updateESP()
+    updateItemESP()
+    noclipLoop()
+    updateMovement()
+    killAura()
+    if autoAimEnabled then
+        local target = getClosestPlayer()
+        if target and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            player.Character.HumanoidRootPart.CFrame = CFrame.new(player.Character.HumanoidRootPart.Position, target.Character.HumanoidRootPart.Position)
+        end
+    end
 end)
 
-print("Painel carregado! Pressione G para abrir/fechar")
+-- Inicialização
+createGui()
+print("✅ Painel PROFISSIONAL carregado! Pressione G para abrir/fechar.")
